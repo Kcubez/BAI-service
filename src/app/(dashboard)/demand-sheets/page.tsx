@@ -362,7 +362,7 @@ function DemandSheetsPageContent() {
   const [insightPage, setInsightPage] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAiInsights, setShowAiInsights] = useState(false);
-  const [showAllTopServices, setShowAllTopServices] = useState(false);
+  const [topSort, setTopSort] = useState<'revenue' | 'volume'>('revenue');
   const [editingRecord, setEditingRecord] = useState<DemandRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<DemandRecord | null>(null);
   const [editStatus, setEditStatus] = useState<string>('new');
@@ -522,9 +522,16 @@ function DemandSheetsPageContent() {
     });
     return months;
   })();
-  const rankedServices = (demandStats?.services ?? []).filter((service) => service.salesCount > 0);
-  const visibleRankedServices = showAllTopServices ? rankedServices : rankedServices.slice(0, 5);
-  const maxServiceSales = Math.max(...rankedServices.map((service) => service.salesCount), 1);
+  const rankedServices = ((demandStats?.services ?? []).filter((service) => service.salesCount > 0)).sort((a, b) =>
+    topSort === 'revenue'
+      ? b.revenue - a.revenue || b.salesCount - a.salesCount
+      : b.salesCount - a.salesCount || b.revenue - a.revenue,
+  );
+  const visibleRankedServices = rankedServices.slice(0, 5);
+  const maxActiveValue = Math.max(
+    ...visibleRankedServices.map((service) => (topSort === 'revenue' ? service.revenue : service.salesCount)),
+    1,
+  );
 
   // Auto-refresh AI insights once whenever the record count changes
   // (e.g. new data arrives via Telegram). Bounded — fires only on change, not on a timer.
@@ -801,23 +808,47 @@ function DemandSheetsPageContent() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle className="text-foreground flex items-center gap-2 font-heading text-base">
-                        <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <Briefcase className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                         Top Products & Services
                       </CardTitle>
                       <CardDescription className="mt-1 text-muted-foreground text-xs">
-                        Ranked by sales volume for the selected period
+                        {topSort === 'revenue'
+                          ? 'Ranked by revenue for the selected period'
+                          : 'Ranked by sales volume for the selected period'}
                       </CardDescription>
                     </div>
-                    {rankedServices.length > 5 && (
+                    <div
+                      role="group"
+                      aria-label="Sort top products and services"
+                      className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-muted/60 p-0.5"
+                    >
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => setShowAllTopServices((show) => !show)}
-                        className="h-8 shrink-0 cursor-pointer rounded-lg text-xs"
+                        aria-pressed={topSort === 'revenue'}
+                        onClick={() => setTopSort('revenue')}
+                        className={`h-7 cursor-pointer rounded-md px-2.5 text-xs font-semibold transition ${
+                          topSort === 'revenue'
+                            ? 'bg-sky-600 text-white shadow-sm hover:bg-sky-600 hover:text-white'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
                       >
-                        {showAllTopServices ? 'Show top 5' : `View all (${rankedServices.length})`}
+                        Revenue
                       </Button>
-                    )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-pressed={topSort === 'volume'}
+                        onClick={() => setTopSort('volume')}
+                        className={`h-7 cursor-pointer rounded-md px-2.5 text-xs font-semibold transition ${
+                          topSort === 'volume'
+                            ? 'bg-sky-600 text-white shadow-sm hover:bg-sky-600 hover:text-white'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Volume
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -830,11 +861,12 @@ function DemandSheetsPageContent() {
                   ) : rankedServices.length > 0 ? (
                     <div className="space-y-2">
                       {visibleRankedServices.map((service, index) => {
-                          const barWidth = Math.max((service.salesCount / maxServiceSales) * 100, 8);
+                          const activeValue = topSort === 'revenue' ? service.revenue : service.salesCount;
+                          const barWidth = Math.max((activeValue / maxActiveValue) * 100, 8);
                           return (
                             <div key={service.serviceName} className="rounded-lg border border-border/70 bg-card/40 p-3 transition-colors hover:bg-muted/40">
                               <div className="flex items-center gap-3">
-                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${index < 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${index < 3 ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                                   {index + 1}
                                 </span>
                                 <div className="min-w-0 flex-1">
@@ -845,15 +877,25 @@ function DemandSheetsPageContent() {
                                     </Badge>
                                   </div>
                                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                                    <div className="h-full rounded-full bg-linear-to-r from-blue-600 to-sky-400 transition-all duration-500" style={{ width: `${barWidth}%` }} />
+                                    <div className="h-full rounded-full bg-linear-to-r from-sky-600 to-sky-400 transition-all duration-500" style={{ width: `${barWidth}%` }} />
                                   </div>
                                 </div>
                                 <div className="shrink-0 text-right">
-                                  <p className="text-xs font-extrabold text-foreground">{service.salesCount}</p>
-                                  <p className="text-[10px] text-muted-foreground">sales</p>
-                                  <p className="mt-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                                    {service.revenue.toLocaleString()} MMK
-                                  </p>
+                                  {topSort === 'revenue' ? (
+                                    <>
+                                      <p className="text-xs font-extrabold text-foreground">{service.revenue.toLocaleString()} MMK</p>
+                                      <p className="mt-0.5 text-[10px] text-muted-foreground">{service.salesCount} sales</p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="text-xs font-extrabold text-foreground">
+                                        {service.salesCount} <span className="font-medium text-muted-foreground">sales</span>
+                                      </p>
+                                      <p className="mt-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                        {service.revenue.toLocaleString()} MMK
+                                      </p>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>

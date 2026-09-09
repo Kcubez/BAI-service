@@ -233,7 +233,6 @@ function CustomersPageContent() {
     limit: PAGE_SIZE,
     dateFrom,
     dateTo,
-    reportType: 'customer_service',
   });
 
   const { data: demandStats, isLoading: demandStatsLoading } = useDemandRecordStats({ dateFrom, dateTo });

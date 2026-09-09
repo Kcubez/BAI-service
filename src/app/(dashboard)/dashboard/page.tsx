@@ -1210,13 +1210,13 @@ function DashboardPageContent() {
                 <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                     <Trophy className="text-amber-500 w-4 h-4" />
                 </div>
-                <h3 className="font-bold text-foreground">Top Performing Services</h3>
+                <h3 className="font-bold text-foreground">Top Performing Products & Services</h3>
             </div>
             <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left text-sm">
                     <thead>
                         <tr className="text-muted-foreground uppercase text-[10px] font-extrabold tracking-wider border-b-2 border-border">
-                            <th className="pb-3 pt-2">Service Package</th>
+                            <th className="pb-3 pt-2">Product / Service</th>
                             <th className="pb-3 pt-2 text-center">Qty</th>
                             <th className="pb-3 pt-2 text-right">Income (MMK)</th>
                         </tr>
