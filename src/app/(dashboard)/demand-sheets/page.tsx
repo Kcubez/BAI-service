@@ -161,6 +161,9 @@ function MonthlyDemandChart({ data }: { data: { month: string; count: number }[]
     return { value, y };
   });
   const slotWidth = points.length <= 1 ? plotWidth : plotWidth / (points.length - 1);
+  // Thin out x-axis labels on wide ranges (e.g. weekly buckets across a
+  // year) so they don't collide — aim for at most ~12 labels.
+  const labelEvery = Math.max(1, Math.ceil(points.length / 12));
 
   return (
     <div className="relative rounded-xl bg-slate-50/80 dark:bg-slate-950/30 p-4 select-none">
@@ -216,7 +219,7 @@ function MonthlyDemandChart({ data }: { data: { month: string; count: number }[]
                 textAnchor="middle"
                 className={`text-[12px] ${isHovered ? 'fill-slate-900 dark:fill-white font-black' : 'fill-slate-600 font-bold'}`}
               >
-                {point.month}
+                {point.index % labelEvery === 0 ? point.month : ""}
               </text>
             </g>
           );
@@ -495,32 +498,124 @@ function DemandSheetsPageContent() {
     followUpStatus: followUpFilter === 'all' ? undefined : followUpFilter,
     reportType: 'demand_report',
   });
+  // ── Demand chart window ─────────────────────────────────────────────
+  // The chart follows the top filter with Business Overview semantics:
+  // month → daily buckets, year → monthly buckets, overall → yearly
+  // buckets, day → ±3-day daily window, custom → daily (weekly past 62d).
+  const demandChartWindow = (() => {
+    const toISODate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (period === "day") {
+      const center = new Date(year, month - 1, day);
+      const from = new Date(center);
+      from.setDate(from.getDate() - 3);
+      const to = new Date(center);
+      to.setDate(to.getDate() + 3);
+      return { fetchFrom: toISODate(from), fetchTo: toISODate(to) };
+    }
+    return { fetchFrom: dateFrom, fetchTo: dateTo };
+  })();
   const { data: chartRecordsData, isLoading: chartRecordsLoading } = useDemandRecords({
     page: 1,
-    limit: 100,
-    dateFrom,
-    dateTo,
+    limit: 1000,
+    dateFrom: demandChartWindow.fetchFrom,
+    dateTo: demandChartWindow.fetchTo,
     reportType: 'demand_report',
   });
-  const monthlyDemandData = (() => {
-    const now = new Date();
-    const monthStart = Math.max(0, now.getMonth() - 5);
-    const months = Array.from({ length: now.getMonth() - monthStart + 1 }).map((_, offset) => {
-      const date = new Date(now.getFullYear(), monthStart + offset, 1);
-      return {
-        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
-        month: date.toLocaleDateString('en', { month: 'short' }),
-        count: 0,
-      };
-    });
-    const monthMap = new Map(months.map(month => [month.key, month]));
-    chartRecordsData?.records.forEach(record => {
+  const demandChart = (() => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const isoOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const parseISODate = (value: string) => {
+      const parts = value.split("-").map(Number);
+      if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+      const d = new Date(parts[0]!, parts[1]! - 1, parts[2]!);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    const buckets: { key: string; month: string; count: number }[] = [];
+    const push = (key: string, month: string) => buckets.push({ key, month, count: 0 });
+    let title = "Monthly Demand Generation";
+    let subtitle = "Demand records grouped by month";
+    let assign: (d: Date) => string | null = () => null;
+
+    if (period === "month") {
+      const lastDay = new Date(year, month, 0).getDate();
+      for (let d = 1; d <= lastDay; d++) push(`${year}-${pad(month)}-${pad(d)}`, String(d));
+      const monthName = new Date(year, month - 1, 1).toLocaleDateString("en", { month: "long", year: "numeric" });
+      title = "Daily Demand Generation";
+      subtitle = `${monthName} • daily`;
+      assign = (d) => isoOf(d);
+    } else if (period === "year") {
+      for (let m = 0; m < 12; m++) {
+        push(`${year}-${pad(m + 1)}`, new Date(year, m, 1).toLocaleDateString("en", { month: "short" }));
+      }
+      title = "Monthly Demand Generation";
+      subtitle = `${year} • monthly`;
+      assign = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    } else if (period === "day") {
+      const center = new Date(year, month - 1, day);
+      for (let offset = -3; offset <= 3; offset++) {
+        const d = new Date(center);
+        d.setDate(d.getDate() + offset);
+        push(isoOf(d), d.toLocaleDateString("en", { month: "short", day: "numeric" }));
+      }
+      title = "Daily Demand Generation";
+      subtitle = `${center.toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })}`;
+      assign = (d) => isoOf(d);
+    } else if (period === "custom") {
+      const from = parseISODate(customFrom);
+      const to = parseISODate(customTo);
+      const dayCount =
+        from && to ? Math.round((to.getTime() - from.getTime()) / 86400000) + 1 : 0;
+      if (!from || !to || dayCount <= 0) {
+        title = "Daily Demand Generation";
+        subtitle = "Custom range • daily";
+      } else if (dayCount > 62) {
+        const starts: Date[] = [];
+        for (let s = new Date(from); s.getTime() <= to.getTime(); s.setDate(s.getDate() + 7)) {
+          starts.push(new Date(s));
+        }
+        starts.forEach((s, idx) => {
+          push(`w${idx}`, s.toLocaleDateString("en", { month: "short", day: "numeric" }));
+        });
+        title = "Weekly Demand Generation";
+        subtitle = `${customFrom} → ${customTo} • weekly`;
+        assign = (d) => {
+          const idx = Math.floor((d.getTime() - from.getTime()) / (7 * 86400000));
+          return idx >= 0 && idx < starts.length ? `w${idx}` : null;
+        };
+      } else {
+        for (let s = new Date(from); s.getTime() <= to.getTime(); s.setDate(s.getDate() + 1)) {
+          const d = new Date(s);
+          push(isoOf(d), d.toLocaleDateString("en", { month: "short", day: "numeric" }));
+        }
+        title = "Daily Demand Generation";
+        subtitle = `${customFrom} → ${customTo} • daily`;
+        assign = (d) => isoOf(d);
+      }
+    } else {
+      // Overall → one bucket per year, from the earliest record year (capped
+      // at 10 buckets) through the current year.
+      const currentYear = new Date().getFullYear();
+      let minYear = currentYear;
+      chartRecordsData?.records.forEach((record) => {
+        const y = new Date(record.createdAt).getFullYear();
+        if (Number.isFinite(y) && y < minYear) minYear = y;
+      });
+      minYear = Math.max(minYear, currentYear - 9);
+      for (let y = minYear; y <= currentYear; y++) push(String(y), String(y));
+      title = "Yearly Demand Generation";
+      subtitle = "All-time • yearly";
+      assign = (d) => String(d.getFullYear());
+    }
+
+    const bucketMap = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+    chartRecordsData?.records.forEach((record) => {
       const date = new Date(record.createdAt);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const month = monthMap.get(key);
-      if (month) month.count += 1;
+      if (Number.isNaN(date.getTime())) return;
+      const bucket = bucketMap.get(assign(date) ?? "");
+      if (bucket) bucket.count += 1;
     });
-    return months;
+    return { buckets, title, subtitle };
   })();
   const rankedServices = ((demandStats?.services ?? []).filter((service) => service.salesCount > 0)).sort((a, b) =>
     topSort === 'revenue'
@@ -914,17 +1009,17 @@ function DemandSheetsPageContent() {
                 <CardHeader>
                   <CardTitle className="text-foreground flex items-center gap-2 font-heading text-base">
                     <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    Monthly Demand Generation
+                    {demandChart.title}
                   </CardTitle>
                   <CardDescription className="text-muted-foreground text-xs">
-                    Demand records grouped by month
+                    {demandChart.subtitle}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {chartRecordsLoading ? (
                     <Skeleton className="h-72 w-full bg-card/60 rounded-lg" />
                   ) : (
-                    <MonthlyDemandChart data={monthlyDemandData} />
+                    <MonthlyDemandChart data={demandChart.buckets} />
                   )}
                 </CardContent>
               </Card>

@@ -209,7 +209,7 @@ export default function HRManagementPage() {
       <div className="flex h-96 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <p className="text-sm">Loading HR & Staff directory...</p>
+          <p className="text-sm">Loading Staff directory...</p>
         </div>
       </div>
     );
@@ -237,7 +237,7 @@ export default function HRManagementPage() {
           <div className="flex items-center gap-2">
             {/* <Users className="h-7 w-7 text-blue-600 dark:text-blue-400" /> */}
             <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              HR & Staff Management
+              Staff Management
             </h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">

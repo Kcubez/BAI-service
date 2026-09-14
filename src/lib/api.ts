@@ -989,6 +989,7 @@ export type PlanningStep = {
 
 export type PlanningInsightsResponse = {
   source: "ai" | "heuristic";
+  hasData: boolean;
   executiveSummary: string;
   futureOutlook: string;
   snapshot: {

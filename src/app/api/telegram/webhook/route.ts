@@ -3245,11 +3245,11 @@ export async function POST(req: NextRequest) {
               "",
               "━━━━━━━━━━━━━━━━━━━━",
               "",
-              `ဤအီးမေးလ် <code>${email}</code> ကို HR & Staff တွင်`,
+              `ဤအီးမေးလ် <code>${email}</code> ကို Staff Management တွင်`,
               "Business Owner မှ ကြိုတင်ထည့်သွင်းထားခြင်း မရှိပါ။",
               "",
               "💡 <i>ကျေးဇူးပြု၍ သင့်လုပ်ငန်းတာဝန်ရှိသူအား</i>",
-              "<i>HR & Staff တွင် စာရင်းသွင်းပေးရန် ပြောပါ။</i>",
+              "<i>Staff Management တွင် စာရင်းသွင်းပေးရန် ပြောပါ။</i>",
             ].join("\n"),
             replyMarkup: KEYBOARD_UNLINKED,
           });
