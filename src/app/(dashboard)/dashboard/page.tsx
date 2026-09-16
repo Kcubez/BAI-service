@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/lib/auth-client';
 import { useDateFilter, type PeriodMode } from '@/hooks/use-date-filter';
-import { useFinanceEntries } from '@/hooks/use-finance-entries';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,6 +101,7 @@ type DashboardStats = {
   totalCost: number;
   profitLoss: number;
   roi: number | null;
+  ownerCapital: number;
   period: PeriodMode;
   selectedMonth: number;
   selectedYear: number;
@@ -160,7 +160,10 @@ function useDashboardStats(period: PeriodMode, month: number, day: number, year:
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
-    refetchInterval: 10000,
+    placeholderData: (prev) => prev,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 30 * 1000,
   });
 }
 
@@ -736,8 +739,7 @@ function DashboardPageContent() {
     years,
   } = useDateFilter('dashboard_filter');
 
-  const { data: stats, isLoading } = useDashboardStats(period, month, day, year, customFrom, customTo);
-  const { data: ownerCapitalData } = useFinanceEntries({ type: 'owner_capital' });
+  const { data: stats, isLoading, isFetching } = useDashboardStats(period, month, day, year, customFrom, customTo);
   const { data: recsData, isLoading: recsLoading } = useActionRecommendations(period, month, day, year, customFrom, customTo);
   const router = useRouter();
 
@@ -920,7 +922,7 @@ function DashboardPageContent() {
   const customerActualPct = customerTarget > 0 ? (customerValue / customerTarget) * 100 : 0;
   const customerExpected = stats?.expectedNewCustomers || 0;
   const customerPacing = hasCustomerTarget ? getPacingStatus(customerValue, customerExpected) : { label: 'Not Set', color: '#64748b', barColor: '#94a3b8' };
-  const ownerCapital = ownerCapitalData?.summary.ownerCapital ?? 0;
+  const ownerCapital = stats?.ownerCapital ?? 0;
 
   const elapsedDaysText = localPeriod !== 'overall' && localPeriod !== 'day' && localPeriod !== 'custom' && stats?.elapsedDays ? ` (Day ${stats.elapsedDays})` : '';
   const targetReferenceLabel = localPeriod === 'day' || localPeriod === 'custom' ? 'Monthly target' : `Expected${elapsedDaysText}`;
@@ -940,6 +942,12 @@ function DashboardPageContent() {
           <p className="text-muted-foreground text-sm">
             Daily intelligence feed and target pacing.
           </p>
+          {!isLoading && isFetching && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Syncing latest Telegram updates…
+            </p>
+          )}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/60 lg:w-auto">
           <Select value={localPeriod} onValueChange={(value) => {
@@ -1128,7 +1136,7 @@ function DashboardPageContent() {
             />
           </div>
 
-          {/* Row 3 - Owner Capital */}
+          {/* Row 3 - Owner Capital (comes with dashboard-stats, no extra request) */}
           {ownerCapital > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <OwnerCapitalCard amount={ownerCapital} />

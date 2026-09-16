@@ -7,11 +7,17 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function useDemandRecords(params: DemandRecordsParams = {}) {
+export function useDemandRecords(
+  params: DemandRecordsParams = {},
+  options: { refetchInterval?: number | false } = {},
+) {
   return useQuery({
     queryKey: ["demand-records", params],
     queryFn: () => demandRecordsApi.list(params),
-    refetchInterval: 5000,
+    placeholderData: (prev) => prev,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: options.refetchInterval ?? 30 * 1000,
   });
 }
 
@@ -19,7 +25,9 @@ export function useDemandRecordStats(params: { dateFrom?: string; dateTo?: strin
   return useQuery({
     queryKey: ["demand-record-stats", params.dateFrom, params.dateTo],
     queryFn: () => demandRecordsApi.stats(params),
-    refetchInterval: 10000,
+    staleTime: 30 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 60 * 1000,
   });
 }
 

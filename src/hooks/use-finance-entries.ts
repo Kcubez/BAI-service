@@ -15,7 +15,12 @@ export function useFinanceEntries(params: FinanceEntriesParams = {}) {
 
 function useRefresh() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: financeEntryKeys.all });
+  return () => {
+    queryClient.invalidateQueries({ queryKey: financeEntryKeys.all });
+    // Owner capital is served via dashboard-stats now, so finance writes must
+    // refresh it too (e.g. adding capital updates the dashboard card).
+    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+  };
 }
 
 export function useCreateFinanceEntry() {

@@ -53,6 +53,8 @@ export async function GET(req: NextRequest) {
     botSettings,
     todayDemandRecords,
     pendingDemandRecords,
+    ownerCapitalAgg,
+    messages,
   ] = await Promise.all([
     prisma.telegramMessage.count({ where: senderScope }),
     prisma.telegramMessage.count({ where: { receivedAt: { gte: startOfToday }, ...senderScope } }),
@@ -63,15 +65,21 @@ export async function GET(req: NextRequest) {
     prisma.botSettings.findFirst({ where: { isActive: true, ...ownerScope } }),
     prisma.demandRecord.count({ where: { createdAt: { gte: startOfToday }, ...demandScope } }),
     prisma.demandRecord.count({ where: { status: { notIn: ['closed', 'completed'] }, ...demandScope } }),
+    // Lifetime owner capital (no period filter — matches /api/finance-entries).
+    prisma.financeEntry.aggregate({
+      _sum: { amount: true },
+      where: { type: "owner_capital", ...activeUploadedScope },
+    }),
+    // Recent messages ride along in the same batch (only the 2 sender fields
+    // the response uses — not the whole sender row).
+    prisma.telegramMessage.findMany({
+      where: senderScope,
+      orderBy: { receivedAt: 'desc' },
+      take: 5,
+      include: { sender: { select: { displayName: true, username: true } } },
+    }),
   ]);
-
-  // Messages List
-  const messages = await prisma.telegramMessage.findMany({
-    where: senderScope,
-    orderBy: { receivedAt: 'desc' },
-    take: 5,
-    include: { sender: true },
-  });
+  const ownerCapital = ownerCapitalAgg._sum.amount ?? 0;
   const recentMessages = messages.map(m => ({
     id: m.id,
     text: m.text.length > 80 ? m.text.slice(0, 80) + '...' : m.text,
@@ -91,31 +99,22 @@ export async function GET(req: NextRequest) {
     adminStats = { totalUsers, activeSessions };
   }
 
-  // Pipeline Data
-  const pipelineCounts = await prisma.demandRecord.groupBy({
-    by: ['status'],
-    _count: { _all: true },
-    where: { createdAt: { gte: periodStart, lt: periodEnd }, ...demandScope },
-  });
-  const pipeline = {
-    new: 0,
-    contacted: 0,
-    quoted: 0,
-    pending: 0,
-    closed: 0,
-  };
-  for (const row of pipelineCounts) {
-    const status = row.status as keyof typeof pipeline;
-    if (status in pipeline) {
-      pipeline[status] = row._count._all;
-    }
-  }
+  // Daily and custom views use the full target of the selected calendar month.
+  // For a custom range, its start date determines the calendar month.
+  const targetReferenceDate = period === "day" || period === "custom" ? periodStart : null;
 
-  // Quantity and Amount Aggregations
-  const [demandRevenueRows, businessAgg, highPriorityLeads, missingPhoneLeads, overdueFollowUps, demandCountPeriod] = await Promise.all([
+  // Quantity and Amount Aggregations — the pipeline groupBy and the period
+  // target lookup are independent of these, so they ride in the same batch
+  // instead of costing their own round-trips.
+  const [pipelineCounts, demandRevenueRows, businessAgg, highPriorityLeads, missingPhoneLeads, overdueFollowUps, demandCountPeriod, periodTarget] = await Promise.all([
+    prisma.demandRecord.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+      where: { createdAt: { gte: periodStart, lt: periodEnd }, ...demandScope },
+    }),
     prisma.demandRecord.findMany({
       select: { serviceAmount: true, serviceQty: true },
-      where: { 
+      where: {
         createdAt: { gte: periodStart, lt: periodEnd },
         ...demandScope,
         status: { in: ['closed', 'completed'] }
@@ -162,7 +161,30 @@ export async function GET(req: NextRequest) {
     prisma.demandRecord.count({
       where: { createdAt: { gte: periodStart, lt: periodEnd }, reportType: "demand_report", ...demandScope },
     }),
+    prisma.periodTarget.findFirst({
+      where: targetReferenceDate
+        ? {
+            period: "month",
+            year: targetReferenceDate.getUTCFullYear(),
+            month: targetReferenceDate.getUTCMonth() + 1,
+            ...ownerScope,
+          }
+        : { period, year, month: period === "year" ? 0 : month, ...ownerScope },
+    }),
   ]);
+  const pipeline = {
+    new: 0,
+    contacted: 0,
+    quoted: 0,
+    pending: 0,
+    closed: 0,
+  };
+  for (const row of pipelineCounts) {
+    const status = row.status as keyof typeof pipeline;
+    if (status in pipeline) {
+      pipeline[status] = row._count._all;
+    }
+  }
   const totalQuantitySold = demandRevenueRows.reduce(
     (total, record) => total + (record.serviceQty ?? 1),
     0,
@@ -176,20 +198,6 @@ export async function GET(req: NextRequest) {
   const totalCost = businessAgg._sum.marketingBudget || 0;
   const profitLoss = totalAmountSold - totalCost;
   const roi = totalCost > 0 ? (profitLoss / totalCost) * 100 : null;
-
-  // Daily and custom views use the full target of the selected calendar month.
-  // For a custom range, its start date determines the calendar month.
-  const targetReferenceDate = period === "day" || period === "custom" ? periodStart : null;
-  const periodTarget = await prisma.periodTarget.findFirst({
-    where: targetReferenceDate
-      ? {
-          period: "month",
-          year: targetReferenceDate.getUTCFullYear(),
-          month: targetReferenceDate.getUTCMonth() + 1,
-          ...ownerScope,
-        }
-      : { period, year, month: period === "year" ? 0 : month, ...ownerScope },
-  });
 
   const targetSalesAmount = periodTarget?.targetSalesAmount ?? null;
   const targetExpenseAmount = periodTarget?.targetExpenseAmount ?? null;
@@ -411,52 +419,38 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // Top Services
-  const [serviceGroups, serviceRevenueRows] = await Promise.all([
-    prisma.demandRecord.groupBy({
-    by: ['serviceName'],
+  // Top Services — one query only. Grouping plus the qty/revenue math happen
+  // in JS so SUM(amount * qty) stays exact, which Prisma aggregate cannot
+  // express. Output (count, totalQty, revenue, sort, top 5) is unchanged.
+  const serviceRows = await prisma.demandRecord.findMany({
     where: {
       serviceName: { not: null },
       status: { in: ['closed', 'completed'] },
       createdAt: { gte: periodStart, lt: periodEnd },
       ...demandScope,
     },
-    _count: { _all: true },
-    _sum: { serviceQty: true, serviceAmount: true },
-    }),
-    prisma.demandRecord.findMany({
-      where: {
-        serviceName: { not: null },
-        status: { in: ['closed', 'completed'] },
-        createdAt: { gte: periodStart, lt: periodEnd },
-        ...demandScope,
-      },
-      select: { serviceName: true, serviceAmount: true, serviceQty: true },
-    }),
-  ]);
-  const revenueByService = new Map<string, number>();
-  const quantityByService = new Map<string, number>();
-  for (const row of serviceRevenueRows) {
-    if (row.serviceName) {
-      revenueByService.set(
-        row.serviceName,
-        (revenueByService.get(row.serviceName) ?? 0) + (row.serviceAmount ?? 0) * (row.serviceQty ?? 1),
-      );
-      quantityByService.set(
-        row.serviceName,
-        (quantityByService.get(row.serviceName) ?? 0) + (row.serviceQty ?? 1),
-      );
-    }
+    select: { serviceName: true, serviceAmount: true, serviceQty: true },
+  });
+  const serviceAgg = new Map<string, { count: number; totalQty: number; revenue: number }>();
+  for (const row of serviceRows) {
+    if (!row.serviceName) continue;
+    const entry = serviceAgg.get(row.serviceName) ?? { count: 0, totalQty: 0, revenue: 0 };
+    entry.count += 1;
+    entry.totalQty += row.serviceQty ?? 1;
+    entry.revenue += (row.serviceAmount ?? 0) * (row.serviceQty ?? 1);
+    serviceAgg.set(row.serviceName, entry);
   }
-  const topProducts = serviceGroups.map(g => ({
-    product: g.serviceName || 'Unknown',
-    count: g._count._all,
-    totalQty: g.serviceName ? quantityByService.get(g.serviceName) ?? 0 : 0,
-    revenue: g.serviceName ? revenueByService.get(g.serviceName) ?? 0 : 0,
+  const topProducts = [...serviceAgg.entries()].map(([product, v]) => ({
+    product,
+    count: v.count,
+    totalQty: v.totalQty,
+    revenue: v.revenue,
   })).sort((a, b) => b.revenue - a.revenue || b.count - a.count).slice(0, 5);
 
-  // Due Today Follow-ups
-  const dueTodayRecordsRaw = await prisma.demandRecord.findMany({
+  // Due Today + Upcoming follow-ups in one batch (only the sender field the
+  // response uses — not the whole sender row).
+  const [dueTodayRecordsRaw, upcomingRecordsRaw] = await Promise.all([
+    prisma.demandRecord.findMany({
     where: {
       followUpDate: {
         gte: startOfToday,
@@ -464,12 +458,41 @@ export async function GET(req: NextRequest) {
       },
       ...demandScope,
     },
-    include: {
-      sender: true,
+    select: {
+      id: true,
+      customerName: true,
+      serviceName: true,
+      serviceQty: true,
+      status: true,
+      note: true,
+      followUpDate: true,
+      sender: { select: { displayName: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: 10,
-  });
+    }),
+    prisma.demandRecord.findMany({
+    where: {
+      followUpDate: {
+        gte: startOfToday,
+      },
+      ...demandScope,
+      status: { notIn: ['closed', 'completed'] },
+    },
+    select: {
+      id: true,
+      customerName: true,
+      serviceName: true,
+      serviceQty: true,
+      status: true,
+      note: true,
+      followUpDate: true,
+      sender: { select: { displayName: true } },
+    },
+    orderBy: { followUpDate: 'asc' },
+    take: 10,
+    }),
+  ]);
   const dueTodayRecords = dueTodayRecordsRaw.map(r => ({
     id: r.id,
     customerName: r.customerName,
@@ -482,21 +505,6 @@ export async function GET(req: NextRequest) {
   }));
   const dueTodayFollowUps = dueTodayRecords.length;
 
-  // Upcoming Follow-ups (from today onwards)
-  const upcomingRecordsRaw = await prisma.demandRecord.findMany({
-    where: {
-      followUpDate: {
-        gte: startOfToday,
-      },
-      ...demandScope,
-      status: { notIn: ['closed', 'completed'] },
-    },
-    include: {
-      sender: true,
-    },
-    orderBy: { followUpDate: 'asc' },
-    take: 10,
-  });
   const upcomingRecords = upcomingRecordsRaw.map(r => ({
     id: r.id,
     customerName: r.customerName,
@@ -528,6 +536,7 @@ export async function GET(req: NextRequest) {
     totalCost,
     profitLoss,
     roi,
+    ownerCapital,
     demandRevenue,
     reportRevenue,
     period,

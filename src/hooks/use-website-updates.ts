@@ -19,7 +19,10 @@ export function useWebsiteUpdates(params: WebsiteUpdatesParams = {}) {
   return useQuery({
     queryKey: websiteUpdatesKeys.list(params),
     queryFn: () => websiteUpdatesApi.list(params),
-    refetchInterval: 5000,
+    placeholderData: (prev) => prev,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 30 * 1000,
   });
 }
 

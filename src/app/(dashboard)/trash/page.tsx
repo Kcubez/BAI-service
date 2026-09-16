@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { RotateCcw, SearchX, Trash2, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DestructiveConfirmDialog } from "@/components/ui/destructive-confirm-dialog";
@@ -230,11 +231,23 @@ export default function TrashPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-40 text-center text-sm text-muted-foreground">
-                      Loading deleted records...
-                    </TableCell>
-                  </TableRow>
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`trash-skeleton-${i}`}>
+                      <TableCell className="pl-4">
+                        <Skeleton className="h-4 w-48 bg-muted" />
+                        <Skeleton className="mt-2 h-3 w-32 bg-muted" />
+                      </TableCell>
+                      <TableCell><Skeleton className="h-5 w-20 bg-muted" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24 bg-muted" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24 bg-muted" /></TableCell>
+                      <TableCell className="pr-4">
+                        <div className="flex justify-end gap-2">
+                          <Skeleton className="h-8 w-20 bg-muted" />
+                          <Skeleton className="h-8 w-20 bg-muted" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 ) : records.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-56">

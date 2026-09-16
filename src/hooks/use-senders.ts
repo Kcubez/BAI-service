@@ -72,6 +72,8 @@ export function useSenders() {
   return useQuery({
     queryKey: ["senders"],
     queryFn: () => sendersApi.list().then((res) => res.senders),
-    refetchInterval: 10000, // Refresh every 10 seconds
+    staleTime: 30 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 60 * 1000,
   });
 }

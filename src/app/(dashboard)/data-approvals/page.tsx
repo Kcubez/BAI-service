@@ -4,6 +4,7 @@ import { useDataApprovals } from '@/hooks/use-data-approvals';
 import { DataApproval } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardCheck, Clock3, CheckCircle2, CircleX, FileText, UserRound } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -59,14 +60,26 @@ export default function DataApprovalsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {statCards.map(({ label, value, icon: Icon, tone }) => (
-          <Card key={label} className="border-border/70 shadow-sm">
-            <CardContent className="flex items-center gap-4 p-5">
-              <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></span>
-              <div><p className="text-sm font-medium text-muted-foreground">{label}</p><p className="mt-0.5 text-2xl font-bold tabular-nums">{value}</p></div>
-            </CardContent>
-          </Card>
-        ))}
+        {isLoading
+          ? Array.from({ length: 3 }).map((_, i) => (
+              <Card key={`approval-stat-skeleton-${i}`} className="border-border/70 shadow-sm">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <Skeleton className="h-11 w-11 rounded-xl bg-muted" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-24 bg-muted" />
+                    <Skeleton className="mt-2 h-7 w-12 bg-muted" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          : statCards.map(({ label, value, icon: Icon, tone }) => (
+              <Card key={label} className="border-border/70 shadow-sm">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></span>
+                  <div><p className="text-sm font-medium text-muted-foreground">{label}</p><p className="mt-0.5 text-2xl font-bold tabular-nums">{value}</p></div>
+                </CardContent>
+              </Card>
+            ))}
       </div>
 
       <Card className="overflow-hidden border-border/70 shadow-sm">
@@ -75,7 +88,18 @@ export default function DataApprovalsPage() {
           <CardDescription>Most recent 100 Telegram file submissions across your workspace.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? <div className="p-10 text-center text-sm text-muted-foreground">Loading approval history…</div> : error ? <div className="p-10 text-center text-sm text-rose-600">Unable to load approval history.</div> : approvals.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-3 p-5" aria-busy="true" aria-live="polite">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={`approval-row-skeleton-${i}`} className="flex items-center gap-3">
+                  <Skeleton className="h-8 w-8 rounded-lg bg-muted" />
+                  <Skeleton className="h-4 w-48 bg-muted" />
+                  <Skeleton className="h-5 w-24 bg-muted" />
+                  <Skeleton className="h-5 w-20 bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : error ? <div className="p-10 text-center text-sm text-rose-600">Unable to load approval history.</div> : approvals.length === 0 ? (
             <div className="p-12 text-center"><FileText className="mx-auto mb-3 h-9 w-9 text-muted-foreground/40" aria-hidden="true" /><p className="font-medium">No file submissions yet</p><p className="mt-1 text-sm text-muted-foreground">Staff file previews will appear here after they are sent through Telegram.</p></div>
           ) : (
             <div className="overflow-x-auto">

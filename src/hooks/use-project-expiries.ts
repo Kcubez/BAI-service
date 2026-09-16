@@ -19,7 +19,10 @@ export function useProjectExpiries(params: ProjectExpiriesParams = {}) {
   return useQuery({
     queryKey: projectExpiriesKeys.list(params),
     queryFn: () => projectExpiriesApi.list(params),
-    refetchInterval: 5000,
+    placeholderData: (prev) => prev,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 30 * 1000,
   });
 }
 

@@ -2,6 +2,33 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+const TELEGRAM_AFFECTED_QUERY_KEYS = [
+  ["dashboard-stats"],
+  ["action-recommendations"],
+  ["demand-records"],
+  ["demand-record-stats"],
+  ["demand-record-recommendations"],
+  ["messages"],
+  ["message-stats"],
+  ["senders"],
+  ["customers"],
+  ["customer-analytics"],
+  ["business-reports"],
+  ["finance-entries"],
+  ["project-expiries"],
+  ["website-updates"],
+  ["data-approvals"],
+  ["trash"],
+] as const;
+
+const GENERAL_AFFECTED_QUERY_KEYS = [
+  ["dashboard-stats"],
+  ["demand-records"],
+  ["demand-record-stats"],
+  ["customers"],
+  ["trash"],
+] as const;
+
 export function useSyncPolling(enabled = true) {
   const queryClient = useQueryClient();
   const lastModifiedRef = useRef<number | null>(null);
@@ -45,8 +72,13 @@ export function useSyncPolling(enabled = true) {
 
         // Check for new Telegram messages / reports
         if (serverTelegramLastModified > telegramLastModifiedRef.current) {
-          // Invalidate all active queries to refresh dashboard data
-          await queryClient.invalidateQueries();
+          // Invalidate only Telegram-driven queries instead of everything,
+          // so unrelated pages don't refetch on every Telegram upload.
+          await Promise.all(
+            TELEGRAM_AFFECTED_QUERY_KEYS.map((queryKey) =>
+              queryClient.invalidateQueries({ queryKey }),
+            ),
+          );
           
           toast.info("Telegram မှ အချက်အလက်အသစ် ရရှိပါသည်", {
             description: "Dashboard ဇယားများနှင့် တွက်ချက်မှုများကို အလိုအလျောက် update လုပ်ပြီးပါပြီ။",
@@ -60,7 +92,11 @@ export function useSyncPolling(enabled = true) {
         // Check for other general updates (e.g. manual dashboard edits)
         else if (serverLastModified > lastModifiedRef.current) {
           // Invalidate silently (no toast since it's likely a user action in-app)
-          await queryClient.invalidateQueries();
+          await Promise.all(
+            GENERAL_AFFECTED_QUERY_KEYS.map((queryKey) =>
+              queryClient.invalidateQueries({ queryKey }),
+            ),
+          );
           lastModifiedRef.current = serverLastModified;
         }
       } catch (err) {
@@ -73,8 +109,9 @@ export function useSyncPolling(enabled = true) {
     // Run immediately on mount
     checkSync();
 
-    // Set up interval to poll every 10 seconds (reduces server load significantly)
-    intervalId = setInterval(checkSync, 10000);
+    // Poll every 25 seconds. Telegram uploads still refresh promptly enough
+    // for a business dashboard, without hammering /api/sync/last-modified.
+    intervalId = setInterval(checkSync, 25000);
 
     // Run immediately when the user switches back to this tab
     const handleVisibilityChange = () => {

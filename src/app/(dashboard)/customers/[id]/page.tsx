@@ -63,7 +63,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['customer', id],
     queryFn: () => customersApi.get(id),
-    refetchInterval: 5000,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 30 * 1000,
     retry: false,
   });
 

@@ -136,7 +136,10 @@ function useDashboardStats(
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
-    refetchInterval: 15000,
+    placeholderData: (prev) => prev,
+    staleTime: 30 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 60 * 1000,
   });
 }
 
@@ -485,7 +488,7 @@ function DemandSheetsPageContent() {
     setEditingRecord(null);
   };
 
-  const { data, isLoading } = useDemandRecords({
+  const { data, isLoading, isFetching } = useDemandRecords({
     page,
     limit,
     search: debouncedSearch || undefined,
@@ -515,13 +518,19 @@ function DemandSheetsPageContent() {
     }
     return { fetchFrom: dateFrom, fetchTo: dateTo };
   })();
-  const { data: chartRecordsData, isLoading: chartRecordsLoading } = useDemandRecords({
-    page: 1,
-    limit: 1000,
-    dateFrom: demandChartWindow.fetchFrom,
-    dateTo: demandChartWindow.fetchTo,
-    reportType: 'demand_report',
-  });
+  // Chart data refetches on filter change + Telegram sync invalidation only.
+  // No timer poll here: the paged table query above already polls, so a second
+  // 5s timer would double every list request.
+  const { data: chartRecordsData, isLoading: chartRecordsLoading } = useDemandRecords(
+    {
+      page: 1,
+      limit: 1000,
+      dateFrom: demandChartWindow.fetchFrom,
+      dateTo: demandChartWindow.fetchTo,
+      reportType: 'demand_report',
+    },
+    { refetchInterval: false },
+  );
   const demandChart = (() => {
     const pad = (n: number) => String(n).padStart(2, "0");
     const isoOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -1316,7 +1325,17 @@ function DemandSheetsPageContent() {
           </Card>
 
           {/* Report Records Table */}
-          <div id="report-table-section" className="overflow-hidden rounded-lg border border-border bg-card/20 backdrop-blur-md shadow-sm">
+          <div
+            id="report-table-section"
+            className={`overflow-hidden rounded-lg border border-border bg-card/20 backdrop-blur-md shadow-sm transition-opacity ${!isLoading && isFetching ? "opacity-60" : ""}`}
+            aria-busy={!isLoading && isFetching}
+          >
+            {!isLoading && isFetching && (
+              <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-6 py-2 text-xs text-muted-foreground" aria-live="polite">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Syncing latest Telegram updates…
+              </div>
+            )}
             <div className="hidden md:grid grid-cols-12 gap-3 border-b border-border px-6 py-4.5 text-xs font-semibold uppercase  text-slate-500 bg-muted/40">
               <div className="col-span-1">Lead Date</div>
               <div className="col-span-2">Customer</div>

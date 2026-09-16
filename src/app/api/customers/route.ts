@@ -203,16 +203,35 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: "ID is required" }, { status: 400 });
   }
 
-  const data: Record<string, unknown> = { phone, email, company, notes, status };
+  const data: Prisma.CustomerUpdateManyMutationInput = { phone, email, company, notes, status };
   if (typeof name === "string" && name.length > 0) {
     data.name = name;
     data.nameNormalized = normalizeCustomerName(name);
   }
 
-  const customer = await prisma.customer.update({
-    where: { id },
+  // Ownership check + write must both be tenant-scoped: a bare
+  // update({ where: { id } }) lets any login overwrite another tenant's
+  // customer. updateMany keeps the guard atomic with the write.
+  const existing = await prisma.customer.findFirst({
+    where: { id, ...customerOwnedByUserOrAdmin(session), ...notDeleted },
+    select: { id: true },
+  });
+  if (!existing) {
+    return NextResponse.json({ message: "Customer not found" }, { status: 404 });
+  }
+  const written = await prisma.customer.updateMany({
+    where: { id, ...customerOwnedByUserOrAdmin(session), ...notDeleted },
     data,
   });
+  if (!written.count) {
+    return NextResponse.json({ message: "Customer not found" }, { status: 404 });
+  }
+  const customer = await prisma.customer.findFirst({
+    where: { id, ...customerOwnedByUserOrAdmin(session) },
+  });
+  if (!customer) {
+    return NextResponse.json({ message: "Customer not found" }, { status: 404 });
+  }
 
   return NextResponse.json({ customer });
 }

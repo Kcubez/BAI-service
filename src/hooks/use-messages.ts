@@ -6,7 +6,10 @@ export function useMessages(params: MessagesParams = {}) {
   return useQuery({
     queryKey: ["messages", params],
     queryFn: () => messagesApi.list(params),
-    refetchInterval: 5000, // Real-time: poll every 5 seconds
+    placeholderData: (prev) => prev,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 30 * 1000,
   });
 }
 
@@ -14,7 +17,9 @@ export function useMessageStats() {
   return useQuery({
     queryKey: ["message-stats"],
     queryFn: () => messagesApi.stats(),
-    refetchInterval: 10000, // Refresh stats every 10 seconds
+    staleTime: 30 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 60 * 1000,
   });
 }
 

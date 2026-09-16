@@ -90,7 +90,9 @@ function useCustomers(params: { search?: string; page?: number; limit?: number; 
     queryKey: ['customers', params],
     queryFn: () => customersApi.list(params),
     placeholderData: (prev) => prev,
-    refetchInterval: 10000,
+    staleTime: 15 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 30 * 1000,
   });
 }
 
@@ -248,8 +250,10 @@ function CustomersPageContent() {
     reportType: 'customer_service',
   });
 
+  // Shares the ['dashboard-stats', ...] cache with the Business Overview page
+  // (same endpoint + params), so navigating between the two is a cache hit.
   const { data: dashboardStats } = useQuery({
-    queryKey: ['dashboard-stats-cs', period, month, day, year, customFrom, customTo],
+    queryKey: ['dashboard-stats', period, month, day, year, customFrom, customTo],
     queryFn: async () => {
       const params = new URLSearchParams({ period, month: String(month), day: String(day), year: String(year) });
       if (period === 'custom') {
@@ -260,7 +264,10 @@ function CustomersPageContent() {
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
-    refetchInterval: 15000,
+    placeholderData: (prev) => prev,
+    staleTime: 30 * 1000,
+    refetchIntervalInBackground: false,
+    refetchInterval: 60 * 1000,
   });
 
   // Mutations

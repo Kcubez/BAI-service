@@ -376,19 +376,21 @@ export default function MessagesPage() {
                       <AlertDialogContent className="bg-card border-border text-foreground">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Message ဖျက်မည်လား?</AlertDialogTitle>
-                          <AlertDialogDescription className="text-muted-foreground text-sm space-y-2">
-                              <span className="block">ဤ message ကို ဖျက်လိုက်ပါက အောက်ပါ data တွေ အားလုံး တပြိုင်နက် ဖျက်သွားမည်:</span>
-                              <ul className="list-disc list-inside space-y-1 text-xs pl-1">
-                                <li>Telegram message မှတ်တမ်း</li>
-                                <li>ဤ message မှ ထုတ်ယူထားသော Demand Records</li>
-                                <li>ဤ message မှ ထုတ်ယူထားသော Business Reports</li>
-                                <li>Pending import (confirm မလုပ်ရသေးသော) တွေ</li>
-                                <li>File မှ extract လုပ်ထားသော QA Documents</li>
-                              </ul>
-                              <span className="block font-medium text-red-600 dark:text-red-400 text-xs pt-1">
-                                ဒီလုပ်ဆောင်ချက်ကို ပြန်မဖြည့်နိုင်ပါ။
-                              </span>
+                          <AlertDialogDescription className="text-muted-foreground text-sm">
+                            ဤ message ကို ဖျက်လိုက်ပါက အောက်ပါ data တွေ အားလုံး တပြိုင်နက် ဖျက်သွားမည်:
                           </AlertDialogDescription>
+                          <div className="space-y-2">
+                            <ul className="list-disc list-inside space-y-1 text-xs pl-1 text-muted-foreground">
+                              <li>Telegram message မှတ်တမ်း</li>
+                              <li>ဤ message မှ ထုတ်ယူထားသော Demand Records</li>
+                              <li>ဤ message မှ ထုတ်ယူထားသော Business Reports</li>
+                              <li>Pending import (confirm မလုပ်ရသေးသော) တွေ</li>
+                              <li>File မှ extract လုပ်ထားသော QA Documents</li>
+                            </ul>
+                            <p className="font-medium text-red-600 dark:text-red-400 text-xs pt-1">
+                              ဒီလုပ်ဆောင်ချက်ကို ပြန်မဖြည့်နိုင်ပါ။
+                            </p>
+                          </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel className="border-border text-foreground">မဖျက်ဘူး</AlertDialogCancel>
