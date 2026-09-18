@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasValidStaffDepartments } from "@/lib/staff-departments";
+import { createSenderSchema } from "@/lib/validations";
 import { ownedByUserOrAdmin } from "@/lib/tenant-scope";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -65,8 +66,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { email, allowedDepartments } = body;
+  const parsed = createSenderSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ message: parsed.error.issues[0]?.message ?? "Invalid staff member" }, { status: 400 });
+  }
+  const { email, allowedDepartments } = parsed.data;
 
   if (!email || typeof email !== "string" || !email.includes("@")) {
     return NextResponse.json({ message: "Valid email address is required" }, { status: 400 });

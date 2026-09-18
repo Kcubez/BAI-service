@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notDeleted } from "@/lib/soft-delete";
+import { CLOSED_DEMAND_STATUSES } from "@/lib/constants";
 import { ownedByUserOrAdmin, senderOwnedByUserOrAdmin, uploadedByUserOrAdmin } from "@/lib/tenant-scope";
+import { getPeriodRange } from "@/lib/period-range";
 import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -235,23 +237,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const now = new Date();
-  const nowMyanmar = new Date(Date.now() + 6.5 * 60 * 60 * 1000);
   const { searchParams } = req.nextUrl;
-  const period = searchParams.get("period") === "overall" ? "overall" : searchParams.get("period") === "day" ? "day" : searchParams.get("period") === "year" ? "year" : searchParams.get("period") === "custom" ? "custom" : "month";
-  const monthParam = Number(searchParams.get("month") || nowMyanmar.getUTCMonth() + 1);
-  const yearParam = Number(searchParams.get("year") || nowMyanmar.getUTCFullYear());
-  const month = Math.min(12, Math.max(1, Number.isFinite(monthParam) ? monthParam : nowMyanmar.getUTCMonth() + 1));
-  const year = Number.isFinite(yearParam) ? yearParam : nowMyanmar.getUTCFullYear();
-  const dayParam = Number(searchParams.get("day") || nowMyanmar.getUTCDate());
-  const day = Math.min(new Date(year, month, 0).getDate(), Math.max(1, Number.isFinite(dayParam) ? dayParam : nowMyanmar.getUTCDate()));
-  const customFrom = searchParams.get("from");
-  const customTo = searchParams.get("to");
-  const customStart = customFrom ? new Date(`${customFrom}T00:00:00.000Z`) : new Date(Date.UTC(year, month - 1, 1));
-  const customEndInclusive = customTo ? new Date(`${customTo}T00:00:00.000Z`) : new Date(Date.UTC(year, month, 0));
-  const periodStart = period === "overall" ? new Date(Date.UTC(1900, 0, 1)) : period === "year" ? new Date(Date.UTC(year, 0, 1)) : period === "custom" ? customStart : period === "day" ? new Date(Date.UTC(year, month - 1, day)) : new Date(Date.UTC(year, month - 1, 1));
-  const periodEnd = period === "overall" ? new Date(Date.UTC(9999, 11, 31)) : period === "year" ? new Date(Date.UTC(year + 1, 0, 1)) : period === "custom" ? new Date(customEndInclusive.getTime() + 24 * 60 * 60 * 1000) : period === "day" ? new Date(Date.UTC(year, month - 1, day + 1)) : new Date(Date.UTC(year, month, 1));
-  const startOfToday = new Date(Date.UTC(nowMyanmar.getUTCFullYear(), nowMyanmar.getUTCMonth(), nowMyanmar.getUTCDate()));
+  const { now, period, year, month, customStart, periodStart, periodEnd, startOfToday } =
+    getPeriodRange(searchParams);
   const senderScope = senderOwnedByUserOrAdmin(session);
   const uploadedScope = uploadedByUserOrAdmin(session);
   const ownerScope = ownedByUserOrAdmin(session);
@@ -278,7 +266,7 @@ export async function GET(req: NextRequest) {
         where: {
           priority: "high",
           ...demandScope,
-          status: { notIn: ["closed", "completed"] },
+          status: { notIn: CLOSED_DEMAND_STATUSES },
           createdAt: { gte: periodStart, lt: periodEnd },
         },
       }),
@@ -286,7 +274,7 @@ export async function GET(req: NextRequest) {
         where: {
           missingFields: { has: "phone" },
           ...demandScope,
-          status: { notIn: ["closed", "completed"] },
+          status: { notIn: CLOSED_DEMAND_STATUSES },
           createdAt: { gte: periodStart, lt: periodEnd },
         },
       }),
@@ -294,7 +282,7 @@ export async function GET(req: NextRequest) {
         where: {
           followUpStatus: "overdue",
           ...demandScope,
-          status: { notIn: ["closed", "completed"] },
+          status: { notIn: CLOSED_DEMAND_STATUSES },
           createdAt: { gte: periodStart, lt: periodEnd },
         },
       }),
@@ -302,7 +290,7 @@ export async function GET(req: NextRequest) {
         where: {
           followUpDate: { gte: startOfToday, lt: new Date(startOfToday.getTime() + 86400000) },
           ...demandScope,
-          status: { notIn: ["closed", "completed"] },
+          status: { notIn: CLOSED_DEMAND_STATUSES },
           createdAt: { gte: periodStart, lt: periodEnd },
         },
       }),
@@ -401,67 +389,6 @@ export async function GET(req: NextRequest) {
     // Suggestions are intentionally generated from the current metrics only.
     // This keeps the output predictable and avoids any external AI request.
     return NextResponse.json({ recommendations: buildHeuristicRecommendations(inputData), source: "local" });
-
-    /* Legacy Gemini implementation retained here temporarily for reference.
-    const prompt = `သင်သည် မြန်မာနိုင်ငံ လုပ်ငန်းတစ်ခုအတွက် အတွေ့အကြုံရင့် Sales Operations Analyst တစ်ဦးဖြစ်သည်။ အောက်ဖော်ပြပါ real-time လုပ်ငန်းမက်ထရစ်တွေကို ခွဲခြမ်းစိတ်ဖြာပြီး ဆောင်ရွက်ရမည့်အကြံဉာဏ် ၂-၄ ခု ပေးပါ။
-
-လက်ရှိကာလ မက်ထရစ်များ (${period === "year" ? "နှစ်" : "လ"}: ${periodLabel}၊ ${elapsedDays}/${totalDaysInPeriod} ရက် ကုန်ဆုံးပြီ):
-- ဦးစားပေး Open Lead အရေအတွက်: ${inputData.highPriority}
-- ဖုန်းနံပါတ် မပါသော Open Lead: ${inputData.missingPhone}
-- သက်တမ်းကျော် Follow-up: ${inputData.overdue}
-- ယနေ့ Follow-up လုပ်ရမည့်အရေအတွက်: ${inputData.dueToday}
-- ဤကာလ ရောင်းရငွေ: ${inputData.totalSalesAmount.toLocaleString()} Ks
-- ${targetLabel}: ${inputData.targetSalesAmount ? inputData.targetSalesAmount.toLocaleString() + ' Ks' : 'မသတ်မှတ်ရသေးပါ'}
-- ဖုန်းဆက်မှုအရေအတွက်: ${inputData.callsMade}
-- Appointment ချိန်းဆိုမှု: ${inputData.appointmentsMade}
-- Appointment တကယ်လာရောက်မှု: ${inputData.appointmentsKept}
-- New Lead အရေအတွက်: ${inputData.newLeads}
-- အောင်မြင်စွာ ပိတ်သိမ်းပြီးသော Deal (Closed): ${inputData.closedDeals}
-- ဈေးနှုန်းကမ်းလှမ်းထားဆဲ Deal (Quoted): ${inputData.quotedDeals}
-- ဆိုင်းငံ့နေဆဲ Deal (Pending): ${inputData.pendingDeals}
-
-Bottleneck သည် ဘယ်နေရာမှာရှိသည်ကို ဖော်ထုတ်ပါ — Marketing (Lead ထုတ်လုပ်မှု/အရည်အသွေး)၊ Sales (Follow-up/Close Rate)၊ Appointments (လာရောက်နှုန်း/အရည်အသွေး) — ထဲမှ ဖော်ထုတ်ပြီး ဆောင်ရွက်ရမည့်အကြံဉာဏ်ပေးပါ။
-
-အရေးကြီး — "title"၊ "insight"၊ "action" ၃ ခုလုံးကို မြန်မာဘာသာ (Burmese) ဖြင့်သာ ရေးပါ။ ပြင်ပဆောင်ရွက်ချက် ရှိသမျှကိုလည်း မြန်မာဘာသာနဲ့ ဖော်ပြပါ။
-"actionType" ကတော့ အောက်ဖော်ပြပါ အင်္ဂလိပ်လို Enum တန်ဖိုးများထဲမှသာ ရွေးချယ်ပေးရမည်:
-- "set_target_modal": အရောင်းပစ်မှတ် သတ်မှတ်ရန် သို့မဟုတ် ပြင်ဆင်ရန် အကြံပြုပါက
-- "view_quoted_deals": ဈေးနှုန်းကမ်းလှမ်းထားသော (Quoted) Deal များအား ပိတ်သိမ်းရန် သို့မဟုတ် ဆက်သွယ်ရန် အကြံပြုပါက
-- "view_pending_deals": ဆိုင်းငံ့နေသော (Pending) Deal များအား ပိတ်သိမ်းရန် သို့မဟုတ် ဆက်သွယ်ရန် အကြံပြုပါက
-- "view_all_deals": Deal နှစ်မျိုးလုံး သို့မဟုတ် ယေဘုယျ အရောင်း Deal များနှင့် ပတ်သက်၍ အကြံပြုပါက
-- "view_overdue_followups": သက်တမ်းကျော်လွန်နေသော Follow-up များအား ဖြေရှင်းရန် အကြံပြုပါက
-- "view_due_followups": ယနေ့ လုပ်ဆောင်ရမည့် Follow-up များအား ဆောင်ရွက်ရန် အကြံပြုပါက
-- "view_missing_phone": ဖုန်းနံပါတ်မပါသော Open Lead များကို ဖုန်းနံပါတ် ပြန်တောင်းရန် အကြံပြုပါက
-- "view_finance": ဘဏ္ဍာရေး သို့မဟုတ် လုပ်ငန်း Bottlenecks များကို စစ်ဆေးရန် အကြံပြုပါက
-- "general_dashboard": ယေဘုယျ လုပ်ငန်းလည်ပတ်မှု ကောင်းမွန်သဖြင့် ပုံမှန်အတိုင်း ဆက်လုပ်ရန် အကြံပြုပါက
-
-JSON Array (markdown မပါ၊ ရှင်းလင်းချက် မပါ) ကိုသာ ထုတ်ပေးပါ:
-[
-  {
-    "area": "marketing" | "sales" | "appointments" | "general",
-    "severity": "urgent" | "warning" | "info",
-    "title": "မြန်မာဘာသာဖြင့် အကြောင်းအရာ အတိုချုပ် (စကားလုံး ၈ ခုအောက်)",
-    "insight": "ဘာဖြစ်နေသည်နှင့် ဘာကြောင့် အရေးကြီးသည် ကို မြန်မာဘာသာဖြင့် ၁-၂ ကြောင်း ရှင်းပြပါ",
-    "action": "Team အတွက် ဆောင်ရွက်ရမည့်အကြံဉာဏ်ကို မြန်မာဘာသာဖြင့် ၁ ကြောင်း ဖော်ပြပါ",
-    "actionType": "set_target_modal" | "view_quoted_deals" | "view_pending_deals" | "view_all_deals" | "view_overdue_followups" | "view_due_followups" | "view_missing_phone" | "view_finance" | "general_dashboard"
-  }
-]`;
-
-    const genAI = new GoogleGenAI({ apiKey: settings.geminiApiKey });
-    const modelName = settings.geminiModel || "gemini-3.1-flash-lite-preview";
-
-    const response = await generateContentWithRetry(genAI, { model: modelName, contents: prompt });
-    const responseText = response?.text;
-
-    if (!responseText) {
-      return NextResponse.json({ recommendations: buildHeuristicRecommendations(inputData) });
-    }
-
-    const cleaned = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-
-    if (!Array.isArray(parsed)) throw new Error("Not an array");
-
-    return NextResponse.json({ recommendations: parsed as ActionRecommendation[] }); */
   } catch (err) {
     console.error("Action recommendations error:", err);
     return NextResponse.json({ recommendations: [] });

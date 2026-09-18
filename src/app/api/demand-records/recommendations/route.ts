@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notDeleted } from "@/lib/soft-delete";
+import { CLOSED_DEMAND_STATUSES } from "@/lib/constants";
 import { senderOwnedByUserOrAdmin } from "@/lib/tenant-scope";
 import type { Prisma } from "@/generated/prisma/client";
 import { NextRequest, NextResponse } from "next/server";
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const records = await prisma.demandRecord.findMany({
     where: {
-      status: { notIn: ["closed", "completed"] },
+      status: { notIn: CLOSED_DEMAND_STATUSES },
       customerName: { not: null },
       ...periodWhere,
       ...senderOwnedByUserOrAdmin(session),

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notDeleted } from "@/lib/soft-delete";
+import { CLOSED_DEMAND_STATUSES } from "@/lib/constants";
 import { uploadedByUserOrAdmin, senderOwnedByUserOrAdmin } from "@/lib/tenant-scope";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
 
   const reportRevenue = reports.reduce((sum, report) => sum + number(report.totalSalesAmount), 0);
   const closedDemandRevenue = demands
-    .filter((record) => ["closed", "completed"].includes(record.status))
+    .filter((record) => CLOSED_DEMAND_STATUSES.includes(record.status))
     .reduce((sum, record) => sum + number(record.serviceAmount) * number(record.serviceQty ?? 1), 0);
   const revenue = reportRevenue + closedDemandRevenue;
   const marketingSpend = reports.reduce((sum, report) => sum + number(report.marketingBudget), 0);
@@ -133,9 +134,9 @@ export async function GET(req: NextRequest) {
   );
   const pendingDeals =
     reports.reduce((sum, report) => sum + number(report.pendingDeals), 0) +
-    demands.filter((record) => !["closed", "completed"].includes(record.status)).length;
+    demands.filter((record) => !CLOSED_DEMAND_STATUSES.includes(record.status)).length;
   const highPriorityLeads = demands.filter(
-    (record) => record.priority === "high" && !["closed", "completed"].includes(record.status),
+    (record) => record.priority === "high" && !CLOSED_DEMAND_STATUSES.includes(record.status),
   ).length;
   const receivables = financeEntries
     .filter((entry) => entry.type === "receivable" && !["paid", "settled"].includes(entry.status))

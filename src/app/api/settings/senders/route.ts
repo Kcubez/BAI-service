@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasValidStaffDepartments } from "@/lib/staff-departments";
+import { createSenderSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/settings/senders — list all Telegram senders for the logged-in Business Owner
@@ -36,10 +37,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const { email, allowedDepartments } = await req.json();
-  if (!email) {
-    return NextResponse.json({ message: "Email is required" }, { status: 400 });
+  const parsed = createSenderSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ message: parsed.error.issues[0]?.message ?? "Invalid sender" }, { status: 400 });
   }
+  const { email, allowedDepartments } = parsed.data;
 
   if (!hasValidStaffDepartments(allowedDepartments)) {
     return NextResponse.json({ message: "Please select at least one valid department" }, { status: 400 });

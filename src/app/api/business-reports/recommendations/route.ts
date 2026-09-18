@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notDeleted } from "@/lib/soft-delete";
+import { CLOSED_DEMAND_STATUSES } from "@/lib/constants";
 import { senderOwnedByUserOrAdmin, uploadedByUserOrAdmin } from "@/lib/tenant-scope";
 import type { Prisma } from "@/generated/prisma/client";
 import { NextRequest, NextResponse } from "next/server";
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   const demandWhere: Prisma.DemandRecordWhereInput = {
     ...senderOwnedByUserOrAdmin(session),
     ...notDeleted,
-    status: { in: ["closed", "completed"] },
+    status: { in: CLOSED_DEMAND_STATUSES },
   };
   if (dateFrom || dateTo) {
     demandWhere.createdAt = {};
