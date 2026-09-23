@@ -809,11 +809,11 @@ function CustomersPageContent() {
         )}
       </Card>
 
-      {/* 1. Purchased Customers Directory Card */}
+      {/* 1. Purchase Records Card */}
       <Card className="bg-card border-2 border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <CardTitle className="text-lg font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
-            1. Purchased Customers Directory
+            1. Purchase Records
           </CardTitle>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="relative flex-1 sm:flex-initial">
@@ -982,11 +982,11 @@ function CustomersPageContent() {
         )}
       </Card>
 
-      {/* 2. Purchase Records Data Card */}
+      {/* 2. Follow-Up / Customer Behavior Card */}
       <Card id="demand-leads-section" className="bg-card border-2 border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <CardTitle className="text-lg font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
-            2. Purchase Records Data
+            2. Follow-Up / Customer Behavior
           </CardTitle>
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             <Select value={followUpFilter} onValueChange={(val) => setFollowUpFilter(val || 'all')}>
@@ -1002,7 +1002,7 @@ function CustomersPageContent() {
             <div className="relative flex-1 sm:flex-initial">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input
-                placeholder="Search purchase records..."
+                placeholder="Search follow-ups..."
                 value={demandSearch}
                 onChange={(e) => setDemandSearch(e.target.value)}
                 className="pl-9 bg-muted/50 border-border text-foreground placeholder:text-muted-foreground w-full sm:w-60 focus-visible:ring-ring"
@@ -1013,7 +1013,7 @@ function CustomersPageContent() {
               className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 h-10 text-xs font-bold transition-all shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              Add Purchase
+              Add Follow-Up
             </Button>
           </div>
         </div>
@@ -1025,7 +1025,7 @@ function CustomersPageContent() {
                   <th className="px-6 py-4 text-left font-extrabold">Purchase Date</th>
                   <th className="px-6 py-4 text-left font-extrabold">Customer Name</th>
                   <th className="px-6 py-4 text-left font-extrabold">Source Channel</th>
-                  <th className="px-6 py-4 text-left font-extrabold">Purchased Service</th>
+                  <th className="px-6 py-4 text-left font-extrabold">Interested Service</th>
                   <th className="px-6 py-4 text-left font-extrabold">Contact</th>
                   <th className="px-6 py-4 text-center font-extrabold">Potential</th>
                   <th className="px-6 py-4 text-center font-extrabold">Status</th>
@@ -1118,7 +1118,7 @@ function CustomersPageContent() {
                 ) : (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500">
-                      No purchase records found.
+                      No follow-up records found.
                     </td>
                   </tr>
                 )}
@@ -1127,7 +1127,7 @@ function CustomersPageContent() {
           </div>
         </CardContent>
 
-        {/* Purchase Records Pagination Footer */}
+        {/* Follow-Up Pagination Footer */}
         {demandData && demandData.totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-card/20 px-6 py-4">
             <div className="text-xs text-muted-foreground font-mono">
@@ -1279,7 +1279,7 @@ function CustomersPageContent() {
           <form onSubmit={handleSaveLead} className="bg-card border border-border w-full max-w-lg rounded-lg overflow-hidden shadow-lg animate-in zoom-in-95 duration-200 text-foreground">
             <div className="flex justify-between items-center border-b border-border p-6 pb-4">
               <h3 className="text-lg font-bold text-foreground">
-                {editingLead ? 'Edit Purchase Record' : 'Add Purchase Record'}
+                {editingLead ? 'Edit Follow-Up Record' : 'Add Follow-Up Record'}
               </h3>
               <button
                 type="button"
@@ -1324,7 +1324,7 @@ function CustomersPageContent() {
                   />
                 </div>
                 <div className="space-y-1.5 col-span-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Purchased Service</label>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Interested Service</label>
                   <Input
                     value={leadForm.serviceName}
                     onChange={(e) => setLeadForm({ ...leadForm, serviceName: e.target.value })}
@@ -1418,7 +1418,7 @@ function CustomersPageContent() {
                 {(createLeadMutation.isPending || updateLeadMutation.isPending) && (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin shrink-0" />
                 )}
-                Save Purchase
+                Save Follow-Up
               </Button>
             </div>
           </form>
@@ -1480,7 +1480,7 @@ function CustomersPageContent() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Lead for {leadToDelete.customerName || 'Unknown'}?</AlertDialogTitle>
               <AlertDialogDescription className="text-muted-foreground">
-                This will move this demand lead record to Trash. Admins can restore it later.
+                This will move this follow-up record to Trash. Admins can restore it later.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-2">
