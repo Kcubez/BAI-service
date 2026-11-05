@@ -156,10 +156,10 @@ describe("getPeriodRange", () => {
     expect(range.periodEnd.toISOString()).toBe("2026-07-01T00:00:00.000Z");
   });
 
-  it("resolves overall to sentinel bounds", () => {
+  it("resolves overall through the end of today", () => {
     const range = getPeriodRange(params("period=overall"));
     expect(range.periodStart.getUTCFullYear()).toBe(1900);
-    expect(range.periodEnd.getUTCFullYear()).toBe(9999);
+    expect(range.periodEnd.getTime()).toBe(range.startOfTomorrow.getTime());
   });
 
   it("resolves a single day and clamps invalid months", () => {

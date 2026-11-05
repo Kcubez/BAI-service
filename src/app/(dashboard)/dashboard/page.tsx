@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { DateRangePicker } from '@/components/dashboard/date-range-picker';
 import { useSession } from '@/lib/auth-client';
 import { useDateFilter, type PeriodMode } from '@/hooks/use-date-filter';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,12 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ModalPortal } from '@/components/ui/modal-portal';
 import { toast } from 'sonner';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
 import {
   Users,
   TrendingUp,
@@ -36,6 +32,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  ArrowUpRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -74,6 +71,7 @@ type DueTodayRecord = {
 
 
 type DashboardStats = {
+  reportingRange: { from: string | null; to: string | null; timezone: string };
   totalMessages: number;
   todayMessages: number;
   totalSenders: number;
@@ -160,7 +158,6 @@ function useDashboardStats(period: PeriodMode, month: number, day: number, year:
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
-    placeholderData: (prev) => prev,
     staleTime: 15 * 1000,
     refetchIntervalInBackground: false,
     refetchInterval: 30 * 1000,
@@ -624,18 +621,18 @@ function ProgressCard({
   actualDetail,
   expectedLabel, expectedValue,
   actualPct, timePct, barColor, icon: Icon,
-  accentClass, iconTone
+  accentClass, iconTone, href
 }: {
   title: string; statusLabel: string; statusColor: string;
   value: number | string; maxValue?: number | string; valueSuffix?: string; actualDetail?: string;
   expectedLabel: string; expectedValue: number | string;
   actualPct: number; timePct: number; barColor: string; icon: LucideIcon;
-  accentClass?: string; iconTone?: string;
+  accentClass?: string; iconTone?: string; href: string;
 }) {
   return (
-    <div className={`bg-card dark:bg-slate-900/40 border-2 border-slate-300 dark:border-slate-800 p-6 flex flex-col justify-between h-48 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-400 dark:hover:border-slate-700 transition-all duration-200 ${accentClass ?? 'border-l-4 border-l-slate-400'}`}>
+    <Link href={href} aria-label={`View ${title} details`} className={`group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-card dark:bg-slate-900/40 border-2 border-slate-300 dark:border-slate-800 p-6 flex flex-col justify-between h-48 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-400 dark:hover:border-slate-700 transition-all duration-200 ${accentClass ?? 'border-l-4 border-l-slate-400'} lg:border lg:border-border lg:border-l-2 lg:shadow-none lg:hover:translate-y-0 lg:hover:border-primary/40 lg:hover:shadow-sm lg:transition-colors`}>
       <div className="flex justify-between items-center">
-        <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</h4>
+        <h4 className="flex items-center gap-1 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider lg:normal-case lg:tracking-normal">{title}<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100" /></h4>
         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconTone ?? 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500'}`}>
           {Icon && <Icon className="w-4 h-4" />}
         </div>
@@ -669,19 +666,20 @@ function ProgressCard({
         />
       </div>
 
+      <span className="hidden text-[11px] font-medium text-primary opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 lg:block">View details</span>
       <div className="flex justify-between items-center text-xs font-bold">
         <span className="text-slate-500 dark:text-slate-400 font-sans">
           {expectedLabel}: {expectedValue}
         </span>
         <span style={{ color: statusColor }}>{statusLabel}</span>
       </div>
-    </div>
+    </Link>
   );
 }
 
-function OwnerCapitalCard({ amount }: { amount: number }) {
+function OwnerCapitalCard({ amount, href }: { amount: number; href: string }) {
   return (
-    <div className="bg-card dark:bg-slate-900/40 border-2 border-slate-300 border-l-4 border-l-indigo-500 dark:border-slate-800 p-6 flex flex-col justify-between h-48 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-400 dark:hover:border-slate-700 transition-all duration-200">
+    <Link href={href} aria-label="View Owner Capital details" className="group lg:border lg:border-border lg:border-l-2 lg:shadow-none lg:hover:translate-y-0 lg:hover:border-primary/40 lg:hover:shadow-sm lg:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-card dark:bg-slate-900/40 border-2 border-slate-300 border-l-4 border-l-indigo-500 dark:border-slate-800 p-6 flex flex-col justify-between h-48 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-400 dark:hover:border-slate-700 transition-all duration-200">
       <div className="flex justify-between items-center">
         <h4 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Owner Capital</h4>
         <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -699,7 +697,7 @@ function OwnerCapitalCard({ amount }: { amount: number }) {
       <div className="flex items-center justify-between text-xs font-bold pt-2.5 border-t border-slate-100 dark:border-slate-800">
         <span className="text-slate-500 dark:text-slate-400">Total owner investment</span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -729,14 +727,12 @@ function DashboardPageContent() {
     year,
     customFrom,
     customTo,
+    dateFrom,
+    dateTo,
     localPeriod,
     localMonth,
     localYear,
-    setLocalPeriod,
-    setLocalMonth,
-    setLocalYear,
     updatePeriod,
-    years,
   } = useDateFilter('dashboard_filter');
 
   const { data: stats, isLoading, isFetching } = useDashboardStats(period, month, day, year, customFrom, customTo);
@@ -748,6 +744,20 @@ function DashboardPageContent() {
       router.replace('/admin/users');
     }
   }, [router, session?.user.role]);
+
+  // Carry the applied reporting period to the destination, overriding its saved filter.
+  const detailLink = (path: string, section: string, filters: Record<string, string> = {}) => {
+    const params = new URLSearchParams({ period, ...filters });
+    if (period === 'custom') {
+      params.set('from', customFrom);
+      params.set('to', customTo);
+    } else if (period !== 'overall') {
+      params.set('year', String(year));
+      if (period !== 'year') params.set('month', String(month));
+      if (period === 'day') params.set('day', String(day));
+    }
+    return `${path}?${params.toString()}#${section}`;
+  };
 
   const getActionLink = (rec: ActionRecommendation) => {
     // 1. Prioritize actionType if present
@@ -934,13 +944,14 @@ function DashboardPageContent() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-1 font-heading">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1 font-heading">
             Business Overview
           </h1>
           <p className="text-muted-foreground text-sm">
-            Daily intelligence feed and target pacing.
+            Track performance against your business targets.
           </p>
           {!isLoading && isFetching && (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
@@ -949,83 +960,14 @@ function DashboardPageContent() {
             </p>
           )}
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/60 lg:w-auto">
-          <Select value={localPeriod} onValueChange={(value) => {
-            if (value === 'overall' || value === 'day' || value === 'month' || value === 'year' || value === 'custom') {
-              setLocalPeriod(value);
-              updatePeriod({ period: value });
-            }
-          }}>
-            <SelectTrigger className="h-9 w-36 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-              {localPeriod === 'overall' ? 'Overall' : localPeriod === 'year' ? 'Yearly' : localPeriod === 'day' ? 'Daily' : localPeriod === 'custom' ? 'Custom range' : 'Monthly'}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="overall">Overall</SelectItem>
-              <SelectItem value="day">Daily</SelectItem>
-              <SelectItem value="month">Monthly</SelectItem>
-              <SelectItem value="year">Yearly</SelectItem>
-              <SelectItem value="custom">Custom range</SelectItem>
-            </SelectContent>
-          </Select>
-          {localPeriod === 'custom' ? (
-            <div className="flex items-center gap-1.5"><Input type="date" value={customFrom} onChange={(event) => updatePeriod({ customFrom: event.target.value })} className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700" aria-label="Start date" /><span className="px-1 text-xs font-medium text-muted-foreground">to</span><Input type="date" value={customTo} min={customFrom} onChange={(event) => updatePeriod({ customTo: event.target.value })} className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700" aria-label="End date" /></div>
-          ) : localPeriod === 'day' ? (
-            <Input
-              type="date"
-              value={`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`}
-              onChange={(event) => {
-                const next = new Date(`${event.target.value}T00:00:00`);
-                if (!Number.isNaN(next.getTime())) updatePeriod({ year: next.getFullYear(), month: next.getMonth() + 1, day: next.getDate() });
-              }}
-              className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700"
-              aria-label="Select day"
-            />
-          ) : localPeriod === 'month' ? (
-            <Select value={localMonth} onValueChange={(value) => {
-              if (value) {
-                setLocalMonth(value);
-                updatePeriod({ month: Number(value) });
-              }
-            }}>
-              <SelectTrigger className="h-9 w-32 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-                {new Date(Number(localYear), Number(localMonth) - 1, 1).toLocaleString('en', { month: 'long' })}
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <SelectItem key={index + 1} value={String(index + 1)}>
-                    {new Date(Number(localYear), index, 1).toLocaleString('en', { month: 'long' })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          {localPeriod !== 'day' && localPeriod !== 'overall' && localPeriod !== 'custom' && <Select value={localYear} onValueChange={(value) => {
-            if (value) {
-              setLocalYear(value);
-              updatePeriod({ year: Number(value) });
-            }
-          }}>
-            <SelectTrigger className="h-9 w-24 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-              {localYear}
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((itemYear) => (
-                <SelectItem key={itemYear} value={String(itemYear)}>
-                  {itemYear}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>}
-
-          {(localPeriod === 'month' || localPeriod === 'year') && (
-            <Button
-              onClick={() => setIsTargetModalOpen(true)}
-              className="h-9 gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
-            >
-              <Target className="h-4 w-4" />
-              Set Targets
-            </Button>
-          )}
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
+          <DateRangePicker period={period} from={dateFrom} to={dateTo} coverage={stats?.reportingRange} onApply={updatePeriod} />
+        {(localPeriod === 'month' || localPeriod === 'year') && (
+          <Button onClick={() => setIsTargetModalOpen(true)} className="h-10 gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-none hover:bg-primary/90 lg:inline-flex">
+            <Target className="h-4 w-4" />Set Targets
+          </Button>
+        )}
+        </div>
         </div>
       </div>
 
@@ -1040,6 +982,7 @@ function DashboardPageContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <ProgressCard
               title="Revenue"
+              href={detailLink('/finance', 'business-reports-table')}
               statusLabel={revenuePacing.label}
               statusColor={revenuePacing.color}
               value={formatOverviewAmount(revenueValue)}
@@ -1056,6 +999,7 @@ function DashboardPageContent() {
             />
             <ProgressCard
               title="Expense Limit"
+              href={detailLink('/finance', 'business-reports-table')}
               statusLabel={expensePacing.label}
               statusColor={expensePacing.color}
               value={formatOverviewAmount(expenseValue)}
@@ -1072,6 +1016,7 @@ function DashboardPageContent() {
             />
             <ProgressCard
               title="Profit Margin"
+              href={detailLink('/finance', 'business-reports-table')}
               statusLabel={profitPacing.label}
               statusColor={profitPacing.color}
               value={(revenueValue > 0 ? (profitValue / revenueValue) * 100 : 0).toFixed(1) + "%"}
@@ -1091,6 +1036,7 @@ function DashboardPageContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <ProgressCard
               title="Demand Leads"
+              href={detailLink('/sales-marketing', 'report-table-section')}
               statusLabel={demandPacing.label}
               statusColor={demandPacing.color}
               value={demandValue.toLocaleString()}
@@ -1106,6 +1052,7 @@ function DashboardPageContent() {
             />
             <ProgressCard
               title="Appointments"
+              href={detailLink('/finance', 'business-reports-table')}
               statusLabel={apptPacing.label}
               statusColor={apptPacing.color}
               value={apptValue.toLocaleString()}
@@ -1121,6 +1068,7 @@ function DashboardPageContent() {
             />
             <ProgressCard
               title="New Customers"
+              href={detailLink('/customers', 'purchase-records-section')}
               statusLabel={customerPacing.label}
               statusColor={customerPacing.color}
               value={customerValue.toLocaleString()}
@@ -1139,7 +1087,7 @@ function DashboardPageContent() {
           {/* Row 3 - Owner Capital (comes with dashboard-stats, no extra request) */}
           {ownerCapital > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <OwnerCapitalCard amount={ownerCapital} />
+              <OwnerCapitalCard amount={ownerCapital} href="/finance?period=overall#finance-records-table" />
             </div>
           )}
         </div>
@@ -1235,7 +1183,7 @@ function DashboardPageContent() {
                         ) : (stats?.topProducts && stats.topProducts.length > 0) ? (
                           stats.topProducts.map((p, i) => (
                             <tr key={i} className="hover:bg-muted/30 transition">
-                                <td className="py-3.5 font-bold text-foreground">{p.product}</td>
+                                <td className="py-3.5 font-bold text-foreground"><Link href={detailLink('/sales-marketing', 'report-table-section', { search: p.product })} className="inline-flex items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{p.product}<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /></Link></td>
                                 <td className="py-3.5 text-center text-muted-foreground font-bold">{p.totalQty}</td>
                                 <td className="py-3.5 text-right font-extrabold text-sky-600 dark:text-sky-400">{p.revenue.toLocaleString()}</td>
                             </tr>

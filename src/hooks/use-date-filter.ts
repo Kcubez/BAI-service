@@ -237,7 +237,9 @@ export function getPeriodRange(
     return { dateFrom: date, dateTo: date };
   }
   if (period === "overall") {
-    return { dateFrom: "", dateTo: "" };
+    // Keep detail pages consistent with the dashboard: all history through today.
+    const today = new Date(Date.now() + 6.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return { dateFrom: "", dateTo: today };
   }
   if (period === "year") {
     return {

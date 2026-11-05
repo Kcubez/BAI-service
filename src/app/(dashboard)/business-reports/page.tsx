@@ -1,5 +1,6 @@
 'use client';
 
+import { DateRangePicker } from '@/components/dashboard/date-range-picker';
 import { Suspense, useState } from 'react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -12,18 +13,10 @@ import {
 import { useDeleteAllFinanceEntries, useFinanceEntries } from '@/hooks/use-finance-entries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DestructiveConfirmDialog } from '@/components/ui/destructive-confirm-dialog';
 import { AccountingRecords } from '@/components/finance/accounting-records';
 import { BusinessReportRecords } from '@/components/business-reports/business-report-records';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   TrendingUp,
   DollarSign,
@@ -516,15 +509,10 @@ function BusinessReportsPageContent() {
   const router = useRouter();
   const {
     period,
-    month,
-    day,
     year,
-    customFrom,
-    customTo,
     dateFrom,
     dateTo,
     updatePeriod,
-    years,
   } = useDateFilter('finance_filter');
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -595,74 +583,8 @@ function BusinessReportsPageContent() {
             Financial records, reporting, and cash flow.
           </p>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/60 lg:w-auto">
-          <Select value={period} onValueChange={(value) => {
-            if (value === 'overall' || value === 'day' || value === 'month' || value === 'year' || value === 'custom') {
-              updatePeriod({ period: value });
-            }
-          }}>
-            <SelectTrigger className="h-9 w-36 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-              {period === 'overall' ? 'Overall' : period === 'year' ? 'Yearly' : period === 'day' ? 'Daily' : period === 'custom' ? 'Custom range' : 'Monthly'}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="overall">Overall</SelectItem>
-              <SelectItem value="day">Daily</SelectItem>
-              <SelectItem value="month">Monthly</SelectItem>
-              <SelectItem value="year">Yearly</SelectItem>
-              <SelectItem value="custom">Custom range</SelectItem>
-            </SelectContent>
-          </Select>
-          {period === 'custom' ? (
-            <div className="flex items-center gap-1.5">
-              <Input type="date" value={customFrom} onChange={(event) => updatePeriod({ customFrom: event.target.value })} className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700" aria-label="Start date" />
-              <span className="px-1 text-xs font-medium text-muted-foreground">to</span>
-              <Input type="date" value={customTo} min={customFrom} onChange={(event) => updatePeriod({ customTo: event.target.value })} className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700" aria-label="End date" />
-            </div>
-          ) : period === 'day' ? (
-            <Input
-              type="date"
-              value={`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`}
-              onChange={(event) => {
-                const next = new Date(`${event.target.value}T00:00:00`);
-                if (!Number.isNaN(next.getTime())) updatePeriod({ year: next.getFullYear(), month: next.getMonth() + 1, day: next.getDate() });
-              }}
-              className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700"
-              aria-label="Select day"
-            />
-          ) : period === 'month' ? (
-            <Select value={String(month)} onValueChange={(value) => {
-              if (value) {
-                updatePeriod({ month: Number(value) });
-              }
-            }}>
-              <SelectTrigger className="h-9 w-32 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-                {new Date(year, month - 1, 1).toLocaleString('en', { month: 'long' })}
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <SelectItem key={index + 1} value={String(index + 1)}>
-                    {new Date(year, index, 1).toLocaleString('en', { month: 'long' })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          {period !== 'day' && period !== 'overall' && period !== 'custom' && <Select value={String(year)} onValueChange={(value) => {
-            if (value) {
-              updatePeriod({ year: Number(value) });
-            }
-          }}>
-            <SelectTrigger className="h-9 w-24 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-              {year}
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((itemYear) => (
-                <SelectItem key={itemYear} value={String(itemYear)}>
-                  {itemYear}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>}
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
+          <DateRangePicker domain="finance" period={period} from={dateFrom} to={dateTo} onApply={updatePeriod} />
           <Button
             variant="outline"
             size="sm"

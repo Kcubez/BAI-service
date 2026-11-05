@@ -59,9 +59,11 @@ export function getPeriodRange(searchParams: URLSearchParams): PeriodRange {
           : period === "day"
             ? new Date(Date.UTC(year, month - 1, day))
             : new Date(Date.UTC(year, month - 1, 1));
+  const startOfToday = new Date(Date.UTC(nowMyanmar.getUTCFullYear(), nowMyanmar.getUTCMonth(), nowMyanmar.getUTCDate()));
+  const startOfTomorrow = new Date(startOfToday.getTime() + DAY_MS);
   const periodEnd =
     period === "overall"
-      ? new Date(Date.UTC(9999, 11, 31))
+      ? startOfTomorrow
       : period === "year"
         ? new Date(Date.UTC(year + 1, 0, 1))
         : period === "custom"
@@ -69,8 +71,6 @@ export function getPeriodRange(searchParams: URLSearchParams): PeriodRange {
           : period === "day"
             ? new Date(Date.UTC(year, month - 1, day + 1))
             : new Date(Date.UTC(year, month, 1));
-  const startOfToday = new Date(Date.UTC(nowMyanmar.getUTCFullYear(), nowMyanmar.getUTCMonth(), nowMyanmar.getUTCDate()));
-  const startOfTomorrow = new Date(startOfToday.getTime() + DAY_MS);
   const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS);
   return {
     now,

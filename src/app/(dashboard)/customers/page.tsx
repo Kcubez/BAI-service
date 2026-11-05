@@ -1,5 +1,7 @@
 'use client';
 
+import { DateRangePicker } from '@/components/dashboard/date-range-picker';
+
 import {
   useEffect,
   useState,
@@ -134,14 +136,7 @@ function CustomersPageContent() {
     customTo,
     dateFrom,
     dateTo,
-    localPeriod,
-    localMonth,
-    localYear,
-    setLocalPeriod,
-    setLocalMonth,
-    setLocalYear,
     updatePeriod,
-    years,
   } = useDateFilter('customer_filter');
 
   const searchParams = useSearchParams();
@@ -489,73 +484,8 @@ function CustomersPageContent() {
             Customer directory, demand leads, and satisfaction metrics.
           </p>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/60 lg:w-auto">
-          <Select value={localPeriod} onValueChange={(value) => {
-            if (value === 'overall' || value === 'day' || value === 'month' || value === 'year' || value === 'custom') {
-              setLocalPeriod(value);
-              updatePeriod({ period: value });
-            }
-          }}>
-            <SelectTrigger className="h-9 w-36 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-              {localPeriod === 'overall' ? 'Overall' : localPeriod === 'year' ? 'Yearly' : localPeriod === 'day' ? 'Daily' : localPeriod === 'custom' ? 'Custom range' : 'Monthly'}
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border text-foreground rounded-lg">
-              <SelectItem value="overall">Overall</SelectItem>
-              <SelectItem value="day">Daily</SelectItem>
-              <SelectItem value="month">Monthly</SelectItem>
-              <SelectItem value="year">Yearly</SelectItem>
-              <SelectItem value="custom">Custom range</SelectItem>
-            </SelectContent>
-          </Select>
-          {localPeriod === 'custom' ? (
-            <div className="flex items-center gap-1.5"><Input type="date" value={customFrom} onChange={(event) => updatePeriod({ customFrom: event.target.value })} className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700" aria-label="Start date" /><span className="px-1 text-xs font-medium text-muted-foreground">to</span><Input type="date" value={customTo} min={customFrom} onChange={(event) => updatePeriod({ customTo: event.target.value })} className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700" aria-label="End date" /></div>
-          ) : localPeriod === 'day' ? (
-            <Input
-              type="date"
-              value={`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`}
-              onChange={(event) => {
-                const next = new Date(`${event.target.value}T00:00:00`);
-                if (!Number.isNaN(next.getTime())) updatePeriod({ year: next.getFullYear(), month: next.getMonth() + 1, day: next.getDate() });
-              }}
-              className="h-9 w-40 rounded-lg border border-slate-200 bg-background text-sm font-semibold shadow-sm dark:border-slate-700"
-              aria-label="Select day"
-            />
-          ) : localPeriod === 'month' ? (
-            <Select value={localMonth} onValueChange={(value) => {
-              if (value) {
-                setLocalMonth(value);
-                updatePeriod({ month: Number(value) });
-              }
-            }}>
-              <SelectTrigger className="h-9 w-32 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-                {new Date(Number(localYear), Number(localMonth) - 1, 1).toLocaleString('en', { month: 'long' })}
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border text-foreground rounded-lg">
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <SelectItem key={index + 1} value={String(index + 1)}>
-                    {new Date(Number(localYear), index, 1).toLocaleString('en', { month: 'long' })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          {localPeriod !== 'day' && localPeriod !== 'overall' && localPeriod !== 'custom' && <Select value={localYear} onValueChange={(value) => {
-            if (value) {
-              setLocalYear(value);
-              updatePeriod({ year: Number(value) });
-            }
-          }}>
-            <SelectTrigger className="h-9 w-24 rounded-lg border border-slate-200 bg-background text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200">
-              {localYear}
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border text-foreground rounded-lg">
-              {years.map((itemYear) => (
-                <SelectItem key={itemYear} value={String(itemYear)}>
-                  {itemYear}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>}
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
+          <DateRangePicker domain="customers" period={period} from={dateFrom} to={dateTo} onApply={updatePeriod} />
 
           <AlertDialog open={isDeleteAllOpen} onOpenChange={(open) => {
             setIsDeleteAllOpen(open);
@@ -810,7 +740,7 @@ function CustomersPageContent() {
       </Card>
 
       {/* 1. Purchase Records Card */}
-      <Card className="bg-card border-2 border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+      <Card id="purchase-records-section" className="bg-card border-2 border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <CardTitle className="text-lg font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
             1. Purchase Records

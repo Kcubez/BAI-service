@@ -1018,3 +1018,10 @@ export const planningApi = {
   insights: (params: DateRangeParams = {}) =>
     request<PlanningInsightsResponse>(`/api/planning/insights${buildDateRangeQuery(params)}`),
 };
+
+export type ReportingDomain = 'finance' | 'sales' | 'customers' | 'projects';
+export type ReportingCoverage = { from: string | null; to: string | null };
+export const reportingRangeApi = {
+  get: (domain: ReportingDomain) =>
+    request<ReportingCoverage>(`/api/reporting-range?domain=${domain}`),
+};

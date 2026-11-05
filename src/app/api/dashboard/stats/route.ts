@@ -76,6 +76,28 @@ export async function GET(req: NextRequest) {
       include: { sender: { select: { displayName: true, username: true } } },
     }),
   ]);
+  // Overall runs through today; find the first record in the same
+  // tenant-scoped, non-deleted data sources used by the period KPIs.
+  let reportingFrom: string | null = periodStart.toISOString().slice(0, 10);
+  let reportingTo: string | null = new Date(periodEnd.getTime() - 1).toISOString().slice(0, 10);
+  if (period === 'overall') {
+    const [demands, reports, customers] = await Promise.all([
+      prisma.demandRecord.aggregate({
+        _min: { createdAt: true }, where: { ...demandScope, createdAt: { gte: periodStart, lt: periodEnd } },
+      }),
+      prisma.businessReport.aggregate({
+        _min: { reportDate: true }, where: { ...activeUploadedScope, reportDate: { gte: periodStart, lt: periodEnd } },
+      }),
+      prisma.customer.aggregate({
+        _min: { createdAt: true }, where: { ...activeCustomerScope, createdAt: { gte: periodStart, lt: periodEnd } },
+      }),
+    ]);
+    const starts = [demands._min.createdAt, reports._min.reportDate, customers._min.createdAt]
+      .filter((date): date is Date => date !== null).map(date => date.getTime());
+    reportingFrom = starts.length ? new Date(Math.min(...starts)).toISOString().slice(0, 10) : null;
+    reportingTo = reportingFrom ? startOfToday.toISOString().slice(0, 10) : null;
+  }
+
   const ownerCapital = ownerCapitalAgg._sum.amount ?? 0;
   const recentMessages = messages.map(m => ({
     id: m.id,
@@ -537,6 +559,7 @@ export async function GET(req: NextRequest) {
     demandRevenue,
     reportRevenue,
     period,
+    reportingRange: { from: reportingFrom, to: reportingTo, timezone: "UTC" },
     selectedMonth: month,
     selectedYear: year,
     highPriorityLeads,
