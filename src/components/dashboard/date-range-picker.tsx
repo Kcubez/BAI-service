@@ -107,8 +107,10 @@ export function DateRangePicker({ period, from, to, coverage, domain, onApply }:
     if (preset === 'Overall') onApply({ period: 'overall' });
     else if (valid) {
       const start = parseISO(draftFrom);
-      if (preset === 'This month' || preset === 'Last month') onApply({ period: 'month', month: start.getMonth() + 1, year: start.getFullYear() });
-      else if (preset === 'This year') onApply({ period: 'year', year: start.getFullYear() });
+      const isFullMonth = draftFrom === dateKey(startOfMonth(start)) && draftTo === dateKey(endOfMonth(start));
+      if (isFullMonth) {
+        onApply({ period: 'month', month: start.getMonth() + 1, year: start.getFullYear() });
+      } else if (preset === 'This year') onApply({ period: 'year', year: start.getFullYear() });
       else if (draftFrom === draftTo) onApply({ period: 'day', year: start.getFullYear(), month: start.getMonth() + 1, day: start.getDate() });
       else onApply({ period: 'custom', customFrom: draftFrom, customTo: draftTo });
     } else return;
